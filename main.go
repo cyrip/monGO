@@ -19,6 +19,7 @@ func init() {
 	}
 }
 
+// https://www.mongodb.com/blog/post/mongodb-go-driver-tutorial
 func main() {
 	log.Printf("monGO started! CPUs: %d, total/free memory %dMB/%dMB", runtime.NumCPU(), memory.TotalMemory()/1024, memory.FreeMemory()/1024)
 	mode := getopt.StringLong("mode", 'm', "", "[-m|--mode] [server|migrate]")
@@ -31,6 +32,7 @@ func main() {
 		application.StartServer()
 	case "migrate":
 		log.Printf("Start migration")
+		application.MongoTest()
 	default:
 		log.Fatalf("There is no such mode!")
 		os.Exit(1)
