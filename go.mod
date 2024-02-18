@@ -5,6 +5,7 @@ go 1.22
 toolchain go1.22.0
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.0.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/joho/godotenv v1.5.1
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/brianvoe/gofakeit/v7 v7.0.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
