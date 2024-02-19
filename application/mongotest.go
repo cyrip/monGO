@@ -15,6 +15,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const MONGO_SHARDS int = 2
+
 type FakeCar struct {
 	UUID5       string   `fake:"{uuid}"`
 	PlateNumber string   `fake:"{regex:[A-Z]{3}}-{regex:[0-9]{3}}"`
@@ -32,73 +34,70 @@ type Cars struct {
 	Data        []string           `bson:"data,omitempty"`
 }
 
-var carsConnection0 *mongo.Client
-var carsCollection0 *mongo.Collection
+var connections [MONGO_SHARDS]*mongo.Client
+var collections [MONGO_SHARDS]*mongo.Collection
+var contexts [MONGO_SHARDS]context.Context
 
-var ctx context.Context
+func createConnection(id int) *mongo.Client {
+	contexts[id], _ = context.WithTimeout(context.Background(), 10*time.Second)
+	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://localhost:%d", 27017+id))
+	var err error
+	connections[id], err = mongo.Connect(contexts[id], clientOptions)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = connections[id].Ping(context.TODO(), nil)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Connected to mongodb on port %d", 27017+id)
+	return connections[id]
+}
+
+func createCollection(id int, ctx context.Context) *mongo.Collection {
+	database := connections[id].Database("darth")
+	collections[id] = database.Collection("Cars")
+	return collections[id]
+}
 
 // var collection *mongo.Collection
 func MongoTest() {
 
-	// getFakeCar()
-	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
-	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://localhost:%d", 27018))
-
-	var err error
-	// Connect to MongoDB
-	carsConnection0, err = mongo.Connect(ctx, clientOptions)
-
-	if err != nil {
-		log.Fatal(err)
+	for id := 0; id <= 1; id++ {
+		createConnection(id)
+		defer connections[id].Disconnect(contexts[id])
+		createCollection(id, contexts[id])
+		addIndex(id)
 	}
 
-	defer carsConnection0.Disconnect(ctx)
-	// Check the connection
-	err = carsConnection0.Ping(context.TODO(), nil)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	database := carsConnection0.Database("darth")
-	carsCollection0 = database.Collection("Cars")
-
-	//	namespaceUUID := uuid.NewV4()
-	//name := "unique_name_for_car1"
-	//uuidV5 := uuid.NewV5(namespaceUUID, name)
-
-	//car1 := Cars{
-	//UUID5:       uuidV5.String(),
-	//PlateNumber: "ROBOTD-04",
-	//Owner:       "Bill Gates",
-	//ValidUntil:  "2026-02-28",
-	//Data:        []string{"zöld", "VIN: WP0ZZZ99ZTS392124"},
-	//}
-
-	//fmt.Print(car1)
-	//response, _ := carsCollection.InsertOne(ctx, car1)
-	//fmt.Print(response)
-	insertFakeCars()
-	addIndex()
-	// insertOne("KQA-901")
-
-	fmt.Println("Connected to MongoDB!")
+	// insertFakeCars()
+	find3(0, "PW.*")
+	find3(1, "PW.*")
 }
 
-func insertOne(plateNumber string) {
+func insertCar(plateNumber string) {
 	namespaceUUID := uuid.NewV4()
 	uuidV5 := uuid.NewV5(namespaceUUID, plateNumber)
 
-	car1 := Cars{
+	car := Cars{
 		UUID5:       uuidV5.String(),
 		PlateNumber: plateNumber,
 		Owner:       "Bill Gates",
 		ValidUntil:  "2026-02-28",
 		Data:        []string{"zöld", "VIN: WP0ZZZ99ZTS392124"},
 	}
+	insertOne(car)
+}
 
-	fmt.Print(car1)
-	response, err := carsCollection0.InsertOne(ctx, car1)
+func insertOne(car Cars) {
+
+	shard := getMongoShard(car.PlateNumber)
+
+	response, err := collections[shard].InsertOne(contexts[shard], car)
 	if err != nil {
 		fmt.Println(response)
 		fmt.Println(err)
@@ -107,19 +106,19 @@ func insertOne(plateNumber string) {
 
 func insertFakeCars() {
 	gofakeit.Seed(rand.Intn(10))
-	inserted := 0
+	var inserted [MONGO_SHARDS]int
 	for i := 0; i < 10000; i++ {
 		car := getFakeCar()
-		response, err := carsCollection0.InsertOne(ctx, car)
+		shard := getMongoShard(car.PlateNumber)
+		response, err := collections[shard].InsertOne(contexts[shard], car)
 		if err != nil {
 			fmt.Println(err)
 			fmt.Println(response)
 		} else {
-			inserted = inserted + 1
+			inserted[shard] = inserted[shard] + 1
 		}
-		// fmt.Print(response)
 	}
-	log.Printf("Inserted docs %d", inserted)
+	log.Printf("Inserted docs shard0 %d shard1 %d", inserted[0], inserted[1])
 }
 
 func getFakeCar() FakeCar {
@@ -135,16 +134,18 @@ func getFakeCar() FakeCar {
 	return fakeCar
 }
 
-func addIndex() {
+// @TODO: index on mongo 1?
+func addIndex(id int) {
 	indexModel := mongo.IndexModel{
 		Keys:    bson.D{{Key: "platenumber", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
 
 	// Create the index
-	indexName, err := carsCollection0.Indexes().CreateOne(ctx, indexModel)
+	indexName, err := collections[id].Indexes().CreateOne(contexts[id], indexModel)
 	if err != nil {
 		log.Println("Index already exists")
+		log.Println(err)
 	} else {
 		log.Printf("Index added %s", indexName)
 	}
@@ -153,4 +154,34 @@ func addIndex() {
 func getMongoShard(plateNumber string) int {
 	firstChar := plateNumber[0]
 	return int(firstChar) % 2
+}
+
+func find3(id int, regex string) {
+
+	filter := bson.M{
+		"$or": []interface{}{
+			bson.M{"platenumber": bson.M{"$regex": regex, "$options": "i"}},
+			bson.M{"owner": bson.M{"$regex": regex, "$options": "i"}},
+			bson.M{"data": bson.M{"$regex": regex, "$options": "i"}},
+		},
+	}
+
+	// Find documents
+	cursor, err := collections[id].Find(contexts[id], filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cursor.Close(contexts[id])
+
+	for cursor.Next(contexts[id]) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(result)
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatal(err)
+	}
 }
