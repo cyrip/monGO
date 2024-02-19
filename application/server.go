@@ -19,4 +19,7 @@ func bindUrls() {
 	{
 		v1.GET("/healthcheck", controllers.HealthCheck)
 	}
+
+	router.POST("/jarmuvek", controllers.PostCar)
+	router.GET("/jarmuvek", controllers.GetCar)
 }

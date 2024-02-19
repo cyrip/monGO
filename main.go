@@ -7,6 +7,7 @@ import (
 
 	"github.com/cyrip/monGO/application"
 	"github.com/cyrip/monGO/config"
+	"github.com/cyrip/monGO/driver/mongo"
 	"github.com/joho/godotenv"
 	"github.com/pbnjay/memory"
 	"github.com/pborman/getopt/v2"
@@ -32,7 +33,10 @@ func main() {
 		application.StartServer()
 	case "migrate":
 		log.Printf("Start migration")
-		application.MongoTest()
+		mongoCars := mongo.MongoCars{}
+		mongoCars.Init()
+		mongoCars.Find0()
+		mongoCars.Disconnect()
 	default:
 		log.Fatalf("There is no such mode!")
 		os.Exit(1)
