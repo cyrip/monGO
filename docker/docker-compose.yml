@@ -1,9 +1,16 @@
 version: '3.9'
 services:
-  mongodb:
+  mongodb0:
     image: mongo:7
     ports:
       - 27017:27017
+    networks:
+      - darth
+  mongodb1:
+    image: mongo:7
+    command: mongod --port 27018
+    ports:
+      - 27018:27018
     networks:
       - darth
 
