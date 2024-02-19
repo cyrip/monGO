@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"sync"
-	"time"
 
 	gofakeit "github.com/brianvoe/gofakeit/v7"
 	"go.mongodb.org/mongo-driver/bson"
@@ -57,7 +56,7 @@ func (this *MongoCars) Disconnect() {
 }
 
 func (this *MongoCars) createConnection(id int) *mongo.Client {
-	this.contexts[id], _ = context.WithTimeout(context.Background(), 10*time.Second)
+	this.contexts[id] = context.Background()
 	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://localhost:%d", 27017+id))
 	var err error
 	this.connections[id], err = mongo.Connect(this.contexts[id], clientOptions)
