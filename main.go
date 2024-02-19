@@ -36,6 +36,7 @@ func main() {
 		container := container.Container{}
 		mongoCars := container.GetMongo()
 		mongoCars.Init()
+		mongoCars.InsertFakeCars()
 		mongoCars.Find0()
 		mongoCars.Disconnect()
 	default:

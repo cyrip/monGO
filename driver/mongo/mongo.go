@@ -14,7 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const MONGO_SHARDS int = 2
+const MONGO_SHARDS int = 1
 
 type FakeCar struct {
 	UUID5       string   `bson:"uuid,omitempty" fake:"{uuid}"`
@@ -91,10 +91,10 @@ func (this *MongoCars) insertOne(car Cars) {
 	}
 }
 
-func (this *MongoCars) insertFakeCars() {
-	gofakeit.Seed(rand.Intn(10))
+func (this *MongoCars) InsertFakeCars() {
+	gofakeit.Seed(rand.Intn(10000))
 	var inserted [MONGO_SHARDS]int
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 20000; i++ {
 		car := this.getFakeCar()
 		shard := this.getMongoShard(car.PlateNumber)
 		response, err := this.collections[shard].InsertOne(this.contexts[shard], car)
@@ -144,7 +144,7 @@ func (this *MongoCars) getMongoShard(plateNumber string) int {
 	return int(firstChar) % MONGO_SHARDS
 }
 
-func (this *MongoCars) findAsync(regex string) {
+func (this *MongoCars) findAsync(regex string) []Cars {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 
@@ -199,13 +199,58 @@ func (this *MongoCars) findAsync(regex string) {
 	}
 
 	wg.Wait()
+	return response
 	//log.Println(response)
-	log.Println(len(response))
-	for i, e := range response {
-		log.Printf("%d %s", i, e.PlateNumber)
-	}
+	//log.Println(len(response))
+	//for i, e := range response {
+	//log.Printf("%d %s", i, e.PlateNumber)
+	//}
 }
 
-func (this *MongoCars) Find0() {
-	this.findAsync("FW.*")
+func (this *MongoCars) Find0() []Cars {
+	return this.findSync("AA.*", 0)
+	// return this.findAsync("AA.*")
+}
+
+func (this *MongoCars) findSync(regex string, id int) []Cars {
+	var response []Cars
+	response = make([]Cars, 0)
+
+	filter := bson.M{
+		"$or": []interface{}{
+			bson.M{"rendszam": bson.M{"$regex": regex, "$options": "i"}},
+			bson.M{"tulajdonos": bson.M{"$regex": regex, "$options": "i"}},
+			bson.M{"adatok": bson.M{"$regex": regex, "$options": "i"}},
+		},
+	}
+
+	cursor, err := this.collections[id].Find(this.contexts[id], filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cursor.Close(this.contexts[0])
+
+	found := 0
+
+	var car Cars
+
+	for cursor.Next(this.contexts[id]) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			log.Fatal(err)
+		}
+		// jsonData, _ := json.Marshal(result)
+		// response = append(response, string(jsonData))
+		bsonBytes, _ := bson.Marshal(result)
+		bson.Unmarshal(bsonBytes, &car)
+		response = append(response, car)
+		// fmt.Println(string(jsonData))
+		found = found + 1
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return response
 }
