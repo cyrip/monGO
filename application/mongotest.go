@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 
 	gofakeit "github.com/brianvoe/gofakeit/v7"
@@ -18,20 +19,20 @@ import (
 const MONGO_SHARDS int = 2
 
 type FakeCar struct {
-	UUID5       string   `fake:"{uuid}"`
-	PlateNumber string   `fake:"{regex:[A-Z]{3}}-{regex:[0-9]{3}}"`
-	ValidUntil  string   `fake:"{year}-{month}-{day}" format:"2006-01-02"`
-	Owner       string   `fake:"{name}"`
-	Data        []string `fakesize:"3"`
+	UUID5       string   `bson:"uuid,omitempty" fake:"{uuid}"`
+	PlateNumber string   `bson:"rendszam,omitempty" fake:"{regex:[A-Z]{3}}-{regex:[0-9]{3}}"`
+	ValidUntil  string   `bson:"forgalmi_ervenyes,omitempty" fake:"{year}-{month}-{day}" format:"2006-01-02"`
+	Owner       string   `bson:"tulajdonos,omitempty" fake:"{name}"`
+	Data        []string `bson:"adatok,omitempty" fakesize:"3"`
 }
 
 type Cars struct {
-	Id          primitive.ObjectID `bson:"_id,omitempty"`
-	UUID5       string             `bson:"uuid5,omitempty"`
-	PlateNumber string             `bson:"platenumber,omitempty"`
-	Owner       string             `bson:"owner,omitempty"`
-	ValidUntil  string             `bson:"validuntil,omitempty"`
-	Data        []string           `bson:"data,omitempty"`
+	Id          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UUID5       string             `bson:"uuid,omitempty" json:"uuid"`
+	PlateNumber string             `bson:"rendszam,omitempty" json:"rendszam"`
+	Owner       string             `bson:"tulajdonos,omitempty" json:"tulajdonos"`
+	ValidUntil  string             `bson:"forgalmi_ervenyes,omitempty" json:"forgalmi_ervenyes"`
+	Data        []string           `bson:"adatok,omitempty" json:"adatok"`
 }
 
 var connections [MONGO_SHARDS]*mongo.Client
@@ -67,16 +68,15 @@ func createCollection(id int, ctx context.Context) *mongo.Collection {
 // var collection *mongo.Collection
 func MongoTest() {
 
-	for id := 0; id <= 1; id++ {
+	for id := 0; id < MONGO_SHARDS; id++ {
 		createConnection(id)
 		defer connections[id].Disconnect(contexts[id])
 		createCollection(id, contexts[id])
 		addIndex(id)
 	}
 
-	// insertFakeCars()
-	find3(0, "PW.*")
-	find3(1, "PW.*")
+	//insertFakeCars()
+	find0()
 }
 
 func insertCar(plateNumber string) {
@@ -118,7 +118,9 @@ func insertFakeCars() {
 			inserted[shard] = inserted[shard] + 1
 		}
 	}
-	log.Printf("Inserted docs shard0 %d shard1 %d", inserted[0], inserted[1])
+	for i := 0; i < MONGO_SHARDS; i++ {
+		log.Printf("Inserted docs shard%d %d", i, inserted[i])
+	}
 }
 
 func getFakeCar() FakeCar {
@@ -137,7 +139,7 @@ func getFakeCar() FakeCar {
 // @TODO: index on mongo 1?
 func addIndex(id int) {
 	indexModel := mongo.IndexModel{
-		Keys:    bson.D{{Key: "platenumber", Value: 1}},
+		Keys:    bson.D{{Key: "rendszam", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
 
@@ -153,16 +155,18 @@ func addIndex(id int) {
 
 func getMongoShard(plateNumber string) int {
 	firstChar := plateNumber[0]
-	return int(firstChar) % 2
+	return int(firstChar) % MONGO_SHARDS
 }
 
-func find3(id int, regex string) {
+func find3(id int, regex string, wg *sync.WaitGroup) {
+
+	defer wg.Done()
 
 	filter := bson.M{
 		"$or": []interface{}{
-			bson.M{"platenumber": bson.M{"$regex": regex, "$options": "i"}},
-			bson.M{"owner": bson.M{"$regex": regex, "$options": "i"}},
-			bson.M{"data": bson.M{"$regex": regex, "$options": "i"}},
+			bson.M{"rendszam": bson.M{"$regex": regex, "$options": "i"}},
+			bson.M{"tulajdonos": bson.M{"$regex": regex, "$options": "i"}},
+			bson.M{"adatok": bson.M{"$regex": regex, "$options": "i"}},
 		},
 	}
 
@@ -184,4 +188,70 @@ func find3(id int, regex string) {
 	if err := cursor.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func findAsync(regex string) {
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+
+	var response []Cars
+	response = make([]Cars, 0)
+
+	for i := 0; i < MONGO_SHARDS; i++ {
+		wg.Add(1)
+		go func(id int, regex string, wg *sync.WaitGroup) {
+			defer wg.Done()
+
+			filter := bson.M{
+				"$or": []interface{}{
+					bson.M{"rendszam": bson.M{"$regex": regex, "$options": "i"}},
+					bson.M{"tulajdonos": bson.M{"$regex": regex, "$options": "i"}},
+					bson.M{"adatok": bson.M{"$regex": regex, "$options": "i"}},
+				},
+			}
+
+			cursor, err := collections[id].Find(contexts[id], filter)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer cursor.Close(contexts[id])
+
+			mutex.Lock()
+			found := 0
+
+			var car Cars
+
+			for cursor.Next(contexts[id]) {
+				var result bson.M
+				if err := cursor.Decode(&result); err != nil {
+					log.Fatal(err)
+				}
+				// jsonData, _ := json.Marshal(result)
+				// response = append(response, string(jsonData))
+				bsonBytes, _ := bson.Marshal(result)
+				bson.Unmarshal(bsonBytes, &car)
+				response = append(response, car)
+				// fmt.Println(string(jsonData))
+				found = found + 1
+			}
+
+			if err := cursor.Err(); err != nil {
+				log.Fatal(err)
+			}
+
+			log.Printf("Found in shard %d %d", id, found)
+			mutex.Unlock()
+		}(i, regex, &wg)
+	}
+
+	wg.Wait()
+	//log.Println(response)
+	log.Println(len(response))
+	for i, e := range response {
+		log.Printf("%d %s", i, e.PlateNumber)
+	}
+}
+
+func find0() {
+	findAsync("FW.*")
 }
