@@ -1,11 +1,12 @@
 package container
 
 import (
+	"github.com/cyrip/monGO/driver"
 	"github.com/cyrip/monGO/driver/mongo"
 )
 
 type Container struct {
-	MongoCars *mongo.MongoCars
+	Backend *driver.Backend
 }
 
 func (this *Container) GetMongo() *mongo.MongoCars {

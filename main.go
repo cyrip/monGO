@@ -8,6 +8,7 @@ import (
 
 	"github.com/cyrip/monGO/application"
 	"github.com/cyrip/monGO/config"
+	"github.com/cyrip/monGO/controllers"
 	"github.com/cyrip/monGO/driver"
 	"github.com/cyrip/monGO/driver/mongo"
 	"github.com/joho/godotenv"
@@ -32,6 +33,8 @@ func main() {
 
 	switch *mode {
 	case "server":
+		backend := mongo.MongoCars{}
+		controllers.Init(&backend)
 		application.StartServer()
 	case "migrate":
 		log.Printf("Start migration")

@@ -4,7 +4,7 @@ type Backend interface {
 	Init()
 	Dispose()
 	Seed(documentNumber int)
-	Search3(regex string)
+	Search3(regex string) []Car
 	CountDocuments() int64
 }
 

@@ -21,5 +21,5 @@ func bindUrls() {
 	}
 
 	router.POST("/jarmuvek", controllers.PostCar)
-	router.GET("/jarmuvek", controllers.GetCar)
+	router.GET("/jarmuvek/:uuid", controllers.GetCar)
 }

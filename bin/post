@@ -1,0 +1,5 @@
+#!/bin/bash
+
+curl -i -X POST http://localhost:8181/jarmuvek \
+     -H "Content-Type: application/json" \
+     -d '{"uuid":"uuid","rendszam":"ABH-192","tulajdonos":"owner1","forgalmi_ervenyes":"2012-12-12","adatok":["qwe1", "qwe2", "qwe3", "qwe4"]}'
