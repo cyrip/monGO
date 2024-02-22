@@ -9,7 +9,7 @@ import (
 
 var mongoCars mongo.MongoCars
 
-func init() {
+func Init() {
 	mongoCars = mongo.MongoCars{}
 	mongoCars.Init()
 }

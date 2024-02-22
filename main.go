@@ -7,7 +7,7 @@ import (
 
 	"github.com/cyrip/monGO/application"
 	"github.com/cyrip/monGO/config"
-	"github.com/cyrip/monGO/container"
+	"github.com/cyrip/monGO/driver/elastic"
 	"github.com/joho/godotenv"
 	"github.com/pbnjay/memory"
 	"github.com/pborman/getopt/v2"
@@ -33,12 +33,16 @@ func main() {
 		application.StartServer()
 	case "migrate":
 		log.Printf("Start migration")
-		container := container.Container{}
-		mongoCars := container.GetMongo()
-		mongoCars.Init()
-		mongoCars.InsertFakeCars()
-		mongoCars.Find0()
-		mongoCars.Disconnect()
+		//container := container.Container{}
+		//mongoCars := container.GetMongo()
+		//mongoCars.Init()
+		//mongoCars.InsertFakeCars()
+		//mongoCars.Find0()
+		//mongoCars.Disconnect()
+		ela := elastic.Elastic{}
+		ela.Init("cars")
+		ela.Search3("A.*")
+
 	default:
 		log.Fatalf("There is no such mode!")
 		os.Exit(1)

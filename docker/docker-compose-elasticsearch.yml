@@ -1,0 +1,25 @@
+version: '3.9'
+services:
+  es00:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+    container_name: es00
+    environment:
+      - node.name=es00
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
+    volumes:
+      - es00-darth-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - darth-net
+
+volumes:
+  es00-darth-data:
+    driver: local
+      
+networks:
+  darth-net:
+    driver: bridge
