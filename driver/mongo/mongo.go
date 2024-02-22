@@ -64,6 +64,23 @@ func (this *MongoCars) createCollection(id int, ctx context.Context) *mongo.Coll
 	return this.collections[id]
 }
 
+func (this *MongoCars) CountDocuments() int64 {
+	filter := bson.D{{}}
+
+	var sumCount int64
+	sumCount = 0
+	for i := 0; i < MONGO_SHARDS; i++ {
+		count, err := this.collections[0].CountDocuments(context.TODO(), filter)
+		if err != nil {
+			log.Fatal(err)
+		}
+		sumCount = sumCount + count
+		log.Printf("Number of documents: %d\n", count)
+	}
+
+	return sumCount
+}
+
 func (this *MongoCars) InsertOne(car driver.Car) {
 
 	shard := this.getMongoShard(car.PlateNumber)

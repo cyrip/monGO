@@ -10,7 +10,7 @@ import (
 
 	gofakeit "github.com/brianvoe/gofakeit/v7"
 	"github.com/cyrip/monGO/driver"
-	"github.com/google/uuid"
+	"github.com/cyrip/monGO/utils"
 	elastic "github.com/olivere/elastic/v7"
 )
 
@@ -142,14 +142,8 @@ func (this *Elastic) Search3(term string) {
 	}
 }
 
-func (this *Elastic) GetUUID(name string) string {
-	namespaceDNS := uuid.NameSpaceDNS
-	uuidV5 := uuid.NewSHA1(namespaceDNS, []byte(name))
-	return uuidV5.String()
-}
-
 func (this *Elastic) AddDocument(doc driver.Car) bool {
-	uuid5 := this.GetUUID(doc.PlateNumber)
+	uuid5 := utils.GetUUID(doc.PlateNumber)
 	indexResponse, err := this.elasticClient.Index().
 		Index(this.indexName).
 		BodyJson(doc).
@@ -162,18 +156,6 @@ func (this *Elastic) AddDocument(doc driver.Car) bool {
 
 	log.Printf("Indexed document %s to index %s\n", indexResponse.Id, indexResponse.Index)
 	return true
-}
-
-func (this *Elastic) Test1(plateNumber string) {
-	car := driver.Car{
-		//UUID5:       uuid5,
-		PlateNumber: plateNumber,
-		Owner:       "KZ",
-		ValidUntil:  "2024-01-01",
-		Data:        []string{"data1", "data2", "data3"},
-	}
-	this.AddDocument(car)
-	this.Search3(".*ABC.*")
 }
 
 func (this *Elastic) InsertOne(car driver.Car) {
@@ -211,7 +193,7 @@ func (this *Elastic) getFakeCar() driver.Car {
 	return fakeCar
 }
 
-func (this *Elastic) CountDocuments() int {
+func (this *Elastic) CountDocuments() int64 {
 	count, err := this.elasticClient.Count().
 		Index(this.indexName).
 		Do(context.Background())
@@ -220,7 +202,7 @@ func (this *Elastic) CountDocuments() int {
 	}
 
 	fmt.Printf("Document count in '%s': %d\n", this.indexName, count)
-	return int(count)
+	return int64(count)
 }
 
 func (this *Elastic) DeleteDocument(docID string) {

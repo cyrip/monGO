@@ -42,9 +42,10 @@ func main() {
 
 		car := driver.Car{}
 		car.Owner = "Owner1"
-		car.PlateNumber = "IOP-919"
+		car.PlateNumber = "IOP-920"
 		mongoCars.InsertOne(car)
 		fmt.Println(mongoCars.Search3(".*IOP-91.*"))
+		fmt.Println(mongoCars.CountDocuments())
 		//mongoCars.InsertFakeCars()
 		//mongoCars.Find0()
 		//mongoCars.Disconnect()

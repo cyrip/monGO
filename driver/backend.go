@@ -5,6 +5,7 @@ type Backend interface {
 	Dispose()
 	Seed(documentNumber int)
 	Search3(regex string)
+	CountDocuments() int64
 }
 
 type Car struct {
