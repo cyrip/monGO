@@ -9,6 +9,7 @@ import (
 	"math/rand"
 
 	gofakeit "github.com/brianvoe/gofakeit/v7"
+	"github.com/cyrip/monGO/driver"
 	"github.com/google/uuid"
 	elastic "github.com/olivere/elastic/v7"
 )
@@ -17,14 +18,6 @@ const ELASTIC_INDEX_NAME string = "cars"
 const ELASTIC_URL = "http://127.0.0.1:9200"
 
 var client *elastic.Client
-
-type Car struct {
-	//UUID5       string   `json:"string"`
-	PlateNumber string   `json:"rendszam" fake:"{regex:[A-Z]{7}}-{regex:[0-9]{1}}"`
-	Owner       string   `json:"tulajdonos" fake:"{name}"`
-	ValidUntil  string   `json:"forgalmi_ervenyes" fake:"{date}" format:"2006-01-02"`
-	Data        []string `json:"adatok" fakesize:"3"`
-}
 
 type Elastic struct {
 	indexName     string
@@ -44,6 +37,10 @@ func (this *Elastic) Init(indexName string) *elastic.Client {
 		this.indexName = indexName
 	}
 	return this.elasticClient
+}
+
+func (this *Elastic) Dispose() {
+	//return
 }
 
 func (this *Elastic) CreateIndex() {
@@ -134,11 +131,13 @@ func (this *Elastic) Search3(term string) {
 	fmt.Printf("Found %d documents\n", searchResult.TotalHits())
 
 	for _, hit := range searchResult.Hits.Hits {
-		var doc map[string]interface{}
+		//var doc map[string]interface{}
+		var doc driver.Car
 		err := json.Unmarshal(hit.Source, &doc)
 		if err != nil {
 			log.Fatalf("Error deserializing hit to document: %s", err)
 		}
+		doc.UUID = hit.Id
 		fmt.Printf("Document ID: %s, Fields: %+v\n", hit.Id, doc)
 	}
 }
@@ -149,7 +148,7 @@ func (this *Elastic) GetUUID(name string) string {
 	return uuidV5.String()
 }
 
-func (this *Elastic) AddDocument(doc Car) bool {
+func (this *Elastic) AddDocument(doc driver.Car) bool {
 	uuid5 := this.GetUUID(doc.PlateNumber)
 	indexResponse, err := this.elasticClient.Index().
 		Index(this.indexName).
@@ -166,7 +165,7 @@ func (this *Elastic) AddDocument(doc Car) bool {
 }
 
 func (this *Elastic) Test1(plateNumber string) {
-	car := Car{
+	car := driver.Car{
 		//UUID5:       uuid5,
 		PlateNumber: plateNumber,
 		Owner:       "KZ",
@@ -177,11 +176,11 @@ func (this *Elastic) Test1(plateNumber string) {
 	this.Search3(".*ABC.*")
 }
 
-func (this *Elastic) InsertOne(car Car) {
+func (this *Elastic) InsertOne(car driver.Car) {
 	this.AddDocument(car)
 }
 
-func (this *Elastic) InsertFakeCars(count int) {
+func (this *Elastic) Seed(count int) {
 	gofakeit.Seed(rand.Intn(10000))
 	inserted := 0
 	notInserted := 0
@@ -197,8 +196,8 @@ func (this *Elastic) InsertFakeCars(count int) {
 	log.Printf("Inserted/Not inserted", inserted, notInserted)
 }
 
-func (this *Elastic) getFakeCar() Car {
-	var fakeCar Car
+func (this *Elastic) getFakeCar() driver.Car {
+	var fakeCar driver.Car
 	err := gofakeit.Struct(&fakeCar)
 	if err != nil {
 		log.Fatal(err)

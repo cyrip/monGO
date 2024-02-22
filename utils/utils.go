@@ -3,6 +3,8 @@ package utils
 import (
 	"os"
 	"strconv"
+
+	"github.com/google/uuid"
 )
 
 func GetEnvFallback(key, fallback string) string {
@@ -28,4 +30,10 @@ func GetEnvInt(key string, def int) int {
 	}
 
 	return i
+}
+
+func GetUUID(name string) string {
+	namespaceDNS := uuid.NameSpaceDNS
+	uuidV5 := uuid.NewSHA1(namespaceDNS, []byte(name))
+	return uuidV5.String()
 }

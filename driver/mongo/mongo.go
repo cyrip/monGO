@@ -8,30 +8,14 @@ import (
 	"sync"
 
 	gofakeit "github.com/brianvoe/gofakeit/v7"
+	"github.com/cyrip/monGO/driver"
+	"github.com/cyrip/monGO/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const MONGO_SHARDS int = 1
-
-type FakeCar struct {
-	UUID5       string   `bson:"uuid,omitempty" fake:"{uuid}"`
-	PlateNumber string   `bson:"rendszam,omitempty" fake:"{regex:[A-Z]{3}}-{regex:[0-9]{3}}"`
-	ValidUntil  string   `bson:"forgalmi_ervenyes,omitempty" fake:"{year}-{month}-{day}" format:"2006-01-02"`
-	Owner       string   `bson:"tulajdonos,omitempty" fake:"{name}"`
-	Data        []string `bson:"adatok,omitempty" fakesize:"3"`
-}
-
-type Cars struct {
-	Id          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	UUID5       string             `bson:"uuid,omitempty" json:"uuid"`
-	PlateNumber string             `bson:"rendszam,omitempty" json:"rendszam"`
-	Owner       string             `bson:"tulajdonos,omitempty" json:"tulajdonos"`
-	ValidUntil  string             `bson:"forgalmi_ervenyes,omitempty" json:"forgalmi_ervenyes"`
-	Data        []string           `bson:"adatok,omitempty" json:"adatok"`
-}
 
 type MongoCars struct {
 	connections [MONGO_SHARDS]*mongo.Client
@@ -49,7 +33,7 @@ func (this *MongoCars) Init() {
 	log.Println(this.contexts)
 }
 
-func (this *MongoCars) Disconnect() {
+func (this *MongoCars) Dispose() {
 	for id := 0; id < MONGO_SHARDS; id++ {
 		defer this.connections[id].Disconnect(this.contexts[id])
 	}
@@ -80,10 +64,10 @@ func (this *MongoCars) createCollection(id int, ctx context.Context) *mongo.Coll
 	return this.collections[id]
 }
 
-func (this *MongoCars) insertOne(car Cars) {
+func (this *MongoCars) InsertOne(car driver.Car) {
 
 	shard := this.getMongoShard(car.PlateNumber)
-
+	car.UUID = utils.GetUUID(car.PlateNumber)
 	response, err := this.collections[shard].InsertOne(this.contexts[shard], car)
 	if err != nil {
 		fmt.Println(response)
@@ -91,10 +75,10 @@ func (this *MongoCars) insertOne(car Cars) {
 	}
 }
 
-func (this *MongoCars) InsertFakeCars() {
+func (this *MongoCars) Seed(documentNumber int) {
 	gofakeit.Seed(rand.Intn(10000))
 	var inserted [MONGO_SHARDS]int
-	for i := 0; i < 20000; i++ {
+	for i := 0; i < documentNumber; i++ {
 		car := this.getFakeCar()
 		shard := this.getMongoShard(car.PlateNumber)
 		response, err := this.collections[shard].InsertOne(this.contexts[shard], car)
@@ -110,8 +94,8 @@ func (this *MongoCars) InsertFakeCars() {
 	}
 }
 
-func (this *MongoCars) getFakeCar() FakeCar {
-	var fakeCar FakeCar
+func (this *MongoCars) getFakeCar() driver.Car {
+	var fakeCar driver.Car
 	err := gofakeit.Struct(&fakeCar)
 	if err != nil {
 		log.Fatal(err)
@@ -144,12 +128,12 @@ func (this *MongoCars) getMongoShard(plateNumber string) int {
 	return int(firstChar) % MONGO_SHARDS
 }
 
-func (this *MongoCars) findAsync(regex string) []Cars {
+func (this *MongoCars) findAsync(regex string) []driver.Car {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 
-	var response []Cars
-	response = make([]Cars, 0)
+	var response []driver.Car
+	response = make([]driver.Car, 0)
 
 	for i := 0; i < MONGO_SHARDS; i++ {
 		wg.Add(1)
@@ -173,7 +157,7 @@ func (this *MongoCars) findAsync(regex string) []Cars {
 			mutex.Lock()
 			found := 0
 
-			var car Cars
+			var car driver.Car
 
 			for cursor.Next(this.contexts[id]) {
 				var result bson.M
@@ -207,14 +191,14 @@ func (this *MongoCars) findAsync(regex string) []Cars {
 	//}
 }
 
-func (this *MongoCars) Find0() []Cars {
-	return this.findSync("AA.*", 0)
+func (this *MongoCars) Search3(regex string) []driver.Car {
+	return this.findSync(regex, 0)
 	// return this.findAsync("AA.*")
 }
 
-func (this *MongoCars) findSync(regex string, id int) []Cars {
-	var response []Cars
-	response = make([]Cars, 0)
+func (this *MongoCars) findSync(regex string, id int) []driver.Car {
+	var response []driver.Car
+	response = make([]driver.Car, 0)
 
 	filter := bson.M{
 		"$or": []interface{}{
@@ -232,10 +216,9 @@ func (this *MongoCars) findSync(regex string, id int) []Cars {
 
 	found := 0
 
-	var car Cars
-
 	for cursor.Next(this.contexts[id]) {
 		var result bson.M
+		var car driver.Car
 		if err := cursor.Decode(&result); err != nil {
 			log.Fatal(err)
 		}
@@ -252,5 +235,6 @@ func (this *MongoCars) findSync(regex string, id int) []Cars {
 		log.Fatal(err)
 	}
 
+	log.Println(response)
 	return response
 }

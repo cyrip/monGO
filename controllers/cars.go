@@ -3,15 +3,14 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/cyrip/monGO/driver/mongo"
+	"github.com/cyrip/monGO/driver"
 	"github.com/gin-gonic/gin"
 )
 
-var mongoCars mongo.MongoCars
+var backend driver.Backend
 
-func Init() {
-	mongoCars = mongo.MongoCars{}
-	mongoCars.Init()
+func Init(backend driver.Backend) {
+	backend.Init()
 }
 
 func PostCar(c *gin.Context) {
@@ -21,7 +20,7 @@ func PostCar(c *gin.Context) {
 }
 
 func GetCar(c *gin.Context) {
-	mongoCars.Find0()
+	backend.Search3("A.*")
 	c.JSON(http.StatusOK, gin.H{
 		"status": "OK",
 	})
