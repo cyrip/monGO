@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 
@@ -35,7 +36,8 @@ func GetEnvInt(key string, def int) int {
 }
 
 func IsDateValue(stringDate string) bool {
-	_, err := time.Parse("2006-01-01", stringDate)
+	_, err := time.Parse("2006-01-02", stringDate)
+	fmt.Println(err)
 	return err == nil
 }
 

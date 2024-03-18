@@ -11,6 +11,7 @@ import (
 	"github.com/cyrip/monGO/controllers"
 	"github.com/cyrip/monGO/driver"
 	"github.com/cyrip/monGO/driver/mongo"
+	"github.com/cyrip/monGO/utils"
 	"github.com/joho/godotenv"
 	"github.com/pbnjay/memory"
 	"github.com/pborman/getopt/v2"
@@ -25,11 +26,19 @@ func init() {
 
 // https://www.mongodb.com/blog/post/mongodb-go-driver-tutorial
 func main() {
+
+	// runtime.GOMAXPROCS(1)
+
 	log.Printf("monGO started! CPUs: %d, total/free memory %dMB/%dMB", runtime.NumCPU(), memory.TotalMemory()/1024, memory.FreeMemory()/1024)
 	mode := getopt.StringLong("mode", 'm', "", "[-m|--mode] [server|migrate]")
+	// backend := getopt.StringLong("mode", 'm', "", "[-m|--mode] [server|migrate]")
+
 	getopt.Parse()
 
 	config.InitEnv()
+
+	log.Println(utils.IsDateValue("1999-12-25"))
+	log.Println(utils.IsDateValue("2024-03-15"))
 
 	switch *mode {
 	case "server":

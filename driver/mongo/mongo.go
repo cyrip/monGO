@@ -41,7 +41,7 @@ func (this *MongoCars) Dispose() {
 
 func (this *MongoCars) createConnection(id int) *mongo.Client {
 	this.contexts[id] = context.Background()
-	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://localhost:%d", 27017+id))
+	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://mongodb0:%d", 27017+id))
 	var err error
 	this.connections[id], err = mongo.Connect(this.contexts[id], clientOptions)
 
@@ -274,6 +274,5 @@ func (this *MongoCars) findSync(regex string, id int) []driver.Car {
 		log.Fatal(err)
 	}
 
-	log.Println(response)
 	return response
 }

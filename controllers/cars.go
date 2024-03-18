@@ -21,19 +21,22 @@ func Init(bck driver.Backend) {
 func PostCar(c *gin.Context) {
 	var postData driver.Car
 
-	log.Println("New post request")
+	formValues := c.PostFormMap("")
+	log.Println(formValues)
 
 	if err := c.ShouldBindJSON(&postData); err != nil {
+		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	log.Println(postData)
 	if !(utils.IsDateValue(postData.ValidUntil)) {
+		log.Println("forgalmi_ervenyes must be date")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "forgalmi_ervenyes must be date"})
 		return
 	}
 
-	log.Println(postData)
 	inserted := backend.InsertOne(postData)
 
 	if inserted == nil {
@@ -43,13 +46,7 @@ func PostCar(c *gin.Context) {
 
 	c.Header("Location", "/jarmuvek/"+inserted.UUID)
 
-	c.JSON(http.StatusCreated, gin.H{
-		"uuid":              inserted.UUID,
-		"rendszam":          postData.PlateNumber,
-		"tulajdonos":        postData.Owner,
-		"forgalmi_ervenyes": postData.ValidUntil,
-		"adatok":            postData.Data,
-	})
+	c.JSON(http.StatusCreated, inserted)
 }
 
 func GetCar(c *gin.Context) {
@@ -67,9 +64,8 @@ func GetCar(c *gin.Context) {
 
 func Search(c *gin.Context) {
 	query, exists := c.GetQuery("q")
-	if !exists {
-		c.String(http.StatusNotFound, "")
-		return
+	if !exists || query == "" {
+		c.String(http.StatusBadRequest, "")
 	}
 
 	response := backend.Search3(query)
