@@ -45,7 +45,12 @@ func main() {
 			controllers.Init(&backend)
 			application.StartServer()
 		case "elastic":
-			time.Sleep(time.Second * 30)
+			// it is an ugly hack, but on my slow machine elastic docker start very slowly, need to tune conenction timeout
+			if config.ELASTIC_MODE == "single" {
+				time.Sleep(time.Second * 60)
+			} else {
+				time.Sleep(time.Second * 60)
+			}
 			backend := elastic.Elastic{}
 			controllers.Init(&backend)
 			application.StartServer()

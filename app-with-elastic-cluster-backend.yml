@@ -1,0 +1,70 @@
+version: '3.9'
+services:
+  es00:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+    environment:
+      - node.name=es00
+      - cluster.name=es-darth-cluster
+      - discovery.seed_hosts=es01
+      - cluster.initial_master_nodes=es00,es01
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1960m -Xmx1960m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es00-darth-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - darth
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-darth-cluster
+      - discovery.seed_hosts=es00
+      - cluster.initial_master_nodes=es00,es01
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1960m -Xmx1960m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es01-darth-data:/usr/share/elasticsearch/data
+    networks:
+      - darth
+  app:
+    build: .
+    image: kz/darth-veda:latest
+    mem_limit: 2048m
+    mem_reservation: 2048m
+    cpus: '2'
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_MODE=server
+      - SERVER_BACKEND=elastic
+      - ELASTIC_MODE=cluster
+    ports:
+      - 8080:8080
+    depends_on:
+      - es00
+      - es01
+    networks:
+      - darth
+
+volumes:
+  es00-darth-data:
+    driver: local
+  es01-darth-data:
+    driver: local
+
+networks:
+  darth:
+    driver: bridge

@@ -9,6 +9,7 @@ import (
 	"math/rand"
 
 	gofakeit "github.com/brianvoe/gofakeit/v7"
+	"github.com/cyrip/monGO/config"
 	"github.com/cyrip/monGO/driver"
 	"github.com/cyrip/monGO/utils"
 	elastic "github.com/olivere/elastic/v7"
@@ -43,9 +44,16 @@ func (this *Elastic) Dispose() {
 }
 
 func (this *Elastic) CreateIndex() {
-	mapping := `{
+	shards := 1
+	if config.ELASTIC_MODE == "cluster" {
+		shards = 2
+	}
+
+	log.Printf("Create index with shards %d", shards)
+
+	mapping := fmt.Sprintf(`{
 		"settings": {
-			"number_of_shards": 1,
+			"number_of_shards": %d,
 			"number_of_replicas": 1
 		},
 		"mappings": {
@@ -56,7 +64,7 @@ func (this *Elastic) CreateIndex() {
 				"adatok": { "type": "keyword" }
 			}
 		}
-	}`
+	}`, shards)
 
 	// Create an index with the defined settings and mappings
 	createIndex, err := this.elasticClient.CreateIndex(this.indexName).BodyString(mapping).Do(context.Background())
