@@ -10,12 +10,13 @@ import (
 	gofakeit "github.com/brianvoe/gofakeit/v7"
 	"github.com/cyrip/monGO/driver"
 	"github.com/cyrip/monGO/utils"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const MONGO_SHARDS int = 1
+const MONGO_SHARDS int = 2
 
 type MongoCars struct {
 	connections [MONGO_SHARDS]*mongo.Client
@@ -41,7 +42,9 @@ func (this *MongoCars) Dispose() {
 
 func (this *MongoCars) createConnection(id int) *mongo.Client {
 	this.contexts[id] = context.Background()
-	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://mongodb0:%d", 27017+id))
+	log.Printf("mongodb://mongodb%d:%d", id, 27017+id)
+
+	clientOptions := options.Client().ApplyURI(fmt.Sprintf("mongodb://mongodb%d:%d", id, 27017+id))
 	var err error
 	this.connections[id], err = mongo.Connect(this.contexts[id], clientOptions)
 
@@ -75,15 +78,17 @@ func (this *MongoCars) CountDocuments() int64 {
 			log.Fatal(err)
 		}
 		sumCount = sumCount + count
-		log.Printf("Number of documents: %d\n", count)
 	}
 
+	log.Printf("Number of documents: %d\n", sumCount)
 	return sumCount
 }
 
 func (this *MongoCars) InsertOne(car driver.Car) *driver.Car {
 
 	shard := this.getMongoShard(car.PlateNumber)
+	log.Printf("Insert to shard %d", shard)
+
 	car.UUID = utils.GetUUID(car.PlateNumber)
 	response, err := this.collections[shard].InsertOne(this.contexts[shard], car)
 	if err != nil {
@@ -144,8 +149,17 @@ func (this *MongoCars) addIndex(id int) {
 }
 
 func (this *MongoCars) getMongoShard(plateNumber string) int {
-	firstChar := plateNumber[0]
-	return int(firstChar) % MONGO_SHARDS
+	UUID := utils.GetUUID(plateNumber)
+	u, err := uuid.Parse(UUID)
+
+	if err != nil {
+		return 0
+	}
+
+	bytes := u[:]
+	shard := bytes[len(bytes)-1] % 2
+
+	return int(shard)
 }
 
 func (this *MongoCars) findAsync(regex string) []driver.Car {
@@ -212,27 +226,43 @@ func (this *MongoCars) findAsync(regex string) []driver.Car {
 }
 
 func (this *MongoCars) Search3(regex string) []driver.Car {
-	return this.findSync(regex, 0)
-	// return this.findAsync("AA.*")
+	// return this.findSync(regex, 0)
+	return this.findAsync(regex)
 }
 
 func (this *MongoCars) GetByUUID(UUID string) *driver.Car {
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+
 	var result driver.Car
-	filter := bson.D{{"uuid", UUID}}
 
-	err := this.collections[0].FindOne(context.TODO(), filter).Decode(&result) // @TODO: make it shard safe
+	for i := 0; i < MONGO_SHARDS; i++ {
+		wg.Add(1)
+		go func(id int, regex string, wg *sync.WaitGroup) {
+			defer wg.Done()
 
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			log.Println("No document matches the provided criteria.")
-		} else {
-			log.Fatal(err)
-		}
-		return nil
-	} else {
-		log.Printf("Found a document: %+v\n", result)
-		return &result
+			var found driver.Car
+
+			filter := bson.D{{"uuid", UUID}}
+			err := this.collections[i].FindOne(context.TODO(), filter).Decode(&found) // @TODO: make it shard safe
+			if err != nil {
+				if err == mongo.ErrNoDocuments {
+					log.Println("No document matches the provided criteria.")
+				} else {
+					log.Println(err)
+				}
+			} else {
+				log.Printf("Found a document: %+v\n", result)
+				mutex.Lock()
+				result = found
+				mutex.Unlock()
+			}
+		}(i, UUID, &wg)
+
 	}
+
+	wg.Wait()
+	return &result
 }
 
 func (this *MongoCars) findSync(regex string, id int) []driver.Car {
