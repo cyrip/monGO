@@ -5,13 +5,19 @@ import (
 )
 
 const (
-	MONGO_PORT_DEFAULT = "8080"
+	SERVER_PORT_DEFAULT    = "8080"
+	SERVER_MODE_DEFAULT    = "server"
+	SERVER_BACKEND_DEFAULT = "mongo"
 )
 
 var (
-	MONGO_PORT string
+	SERVER_PORT    string
+	SERVER_MODE    string
+	SERVER_BACKEND string
 )
 
 func InitEnv() {
-	MONGO_PORT = utils.GetEnvFallback("MONGO_PORT", MONGO_PORT_DEFAULT)
+	SERVER_PORT = utils.GetEnvFallback("SERVER_PORT", SERVER_PORT_DEFAULT)
+	SERVER_MODE = utils.GetEnvFallback("SERVER_MODE", SERVER_MODE_DEFAULT)
+	SERVER_BACKEND = utils.GetEnvFallback("SERVER_BACKEND", SERVER_BACKEND_DEFAULT)
 }

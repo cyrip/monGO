@@ -16,4 +16,4 @@ COPY --from=builder /app/darth-veda .
 
 EXPOSE 8080
 
-CMD ["./darth-veda", "--mode=server"]
+CMD ["./darth-veda"]

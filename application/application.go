@@ -7,6 +7,6 @@ import (
 )
 
 func StartServer() {
-	log.Printf("monGO starting webserver %d", config.MONGO_PORT)
-	initHTTPServer(config.MONGO_PORT)
+	log.Printf("monGO starting webserver %d", config.SERVER_PORT)
+	initHTTPServer(config.SERVER_PORT)
 }

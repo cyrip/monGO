@@ -15,7 +15,7 @@ import (
 )
 
 const ELASTIC_INDEX_NAME string = "cars"
-const ELASTIC_URL = "http://127.0.0.1:9200"
+const ELASTIC_URL = "http://es00:9200"
 
 var client *elastic.Client
 

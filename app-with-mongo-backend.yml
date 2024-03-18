@@ -1,19 +1,29 @@
 version: '3'
 services:
+  mongodb0:
+    image: mongo:7
+    mem_limit: 2048m
+    mem_reservation: 2048m
+    cpus: '2'
+    command: mongod --port 27017
+    ports:
+      - 27017:27017
+    networks:
+      - darth
   app:
     build: .
     image: kz/darth-veda:latest
+    mem_limit: 2048m
+    mem_reservation: 2048m
+    cpus: '2'
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_MODE=server
+      - SERVER_BACKEND=mongo
     ports:
       - 8080:8080
     depends_on:
       - mongodb0
-    networks:
-      - darth
-  mongodb0:
-    image: mongo:7
-    command: mongod --port 27017
-    ports:
-      - 27017:27017
     networks:
       - darth
 
