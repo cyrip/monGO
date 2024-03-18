@@ -276,3 +276,11 @@ func (this *MongoCars) findSync(regex string, id int) []driver.Car {
 
 	return response
 }
+
+func (this *MongoCars) GetAllDocuments() []driver.Car {
+	return nil
+}
+
+func (this *MongoCars) CreateIndex() {
+	return
+}

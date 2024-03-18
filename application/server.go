@@ -20,8 +20,11 @@ func bindUrls() {
 		v1.GET("/healthcheck", controllers.HealthCheck)
 	}
 
-	router.POST("/jarmuvek", controllers.PostCar)
 	router.GET("/jarmuvek/:uuid", controllers.GetCar)
+	router.POST("/jarmuvek", controllers.PostCar)
 	router.GET("/jarmuvek", controllers.CountCars)
 	router.GET("/kereses", controllers.Search)
+
+	// new routes
+	router.GET("/getall", controllers.GetAllDocuments)
 }

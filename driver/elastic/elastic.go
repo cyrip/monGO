@@ -24,7 +24,7 @@ type Elastic struct {
 	elasticClient *elastic.Client
 }
 
-func (this *Elastic) Init(indexName string) *elastic.Client {
+func (this *Elastic) Init() {
 	if this.elasticClient == nil {
 		var err error
 		this.elasticClient, err = elastic.NewClient(
@@ -34,9 +34,8 @@ func (this *Elastic) Init(indexName string) *elastic.Client {
 		if err != nil {
 			log.Fatal(err)
 		}
-		this.indexName = indexName
+		this.indexName = ELASTIC_INDEX_NAME
 	}
-	return this.elasticClient
 }
 
 func (this *Elastic) Dispose() {
@@ -46,7 +45,7 @@ func (this *Elastic) Dispose() {
 func (this *Elastic) CreateIndex() {
 	mapping := `{
 		"settings": {
-			"number_of_shards": 2,
+			"number_of_shards": 1,
 			"number_of_replicas": 1
 		},
 		"mappings": {
@@ -62,10 +61,9 @@ func (this *Elastic) CreateIndex() {
 	// Create an index with the defined settings and mappings
 	createIndex, err := this.elasticClient.CreateIndex(this.indexName).BodyString(mapping).Do(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to create index: %s", err)
-	}
-	if !createIndex.Acknowledged {
-		log.Fatal("Create index not acknowledged")
+		log.Println("Failed to create index: %s", err)
+	} else if !createIndex.Acknowledged {
+		log.Println("Create index not acknowledged")
 	}
 
 	log.Println("Index created successfully")
@@ -85,9 +83,12 @@ func (this *Elastic) DeleteIndex() {
 	}
 }
 
-func (this *Elastic) GetAllDocuments() {
+func (this *Elastic) GetAllDocuments() []driver.Car {
+	var response []driver.Car
+	response = make([]driver.Car, 0)
+
 	// Initialize scrolling over documents
-	scroll := this.elasticClient.Scroll(this.indexName).Size(100) // Adjust size as needed
+	scroll := this.elasticClient.Scroll(this.indexName).Size(10000) // Adjust size as needed
 	for {
 		results, err := scroll.Do(context.Background())
 		if err == io.EOF {
@@ -100,29 +101,38 @@ func (this *Elastic) GetAllDocuments() {
 
 		// Iterate through results
 		for _, hit := range results.Hits.Hits {
-			var doc map[string]interface{}
+			var doc driver.Car
 			if err := json.Unmarshal(hit.Source, &doc); err != nil {
 				log.Fatalf("Error deserializing document: %s", err)
 			}
+			doc.UUID = hit.Id
+			response = append(response, doc)
 			// Process your document (doc) here
 			log.Printf("Doc ID: %s, Doc: %+v\n", hit.Id, doc)
 		}
 	}
+	return response
 }
 
-func (this *Elastic) Search3(term string) {
+func (this *Elastic) Search3(regex string) []driver.Car {
+	var response []driver.Car
+	response = make([]driver.Car, 0)
+
+	fmt.Println(regex)
+
 	query := elastic.NewBoolQuery().Should(
-		elastic.NewRegexpQuery("rendszam", term),
-		elastic.NewRegexpQuery("tulajdonos", term),
-		elastic.NewRegexpQuery("adatok", term),
+		elastic.NewRegexpQuery("rendszam", ".*"+regex+".*"),
+		elastic.NewRegexpQuery("tulajdonos", ".*"+regex+".*"),
+		elastic.NewRegexpQuery("adatok", ".*"+regex+".*"),
 	)
 
 	searchResult, err := this.elasticClient.Search().
 		Index(this.indexName).
 		Query(query).
 		Pretty(true).
-		Size(100).
+		Size(1000).
 		Do(context.Background())
+
 	if err != nil {
 		log.Fatalf("Error getting response: %s", err)
 	}
@@ -131,15 +141,19 @@ func (this *Elastic) Search3(term string) {
 	fmt.Printf("Found %d documents\n", searchResult.TotalHits())
 
 	for _, hit := range searchResult.Hits.Hits {
-		//var doc map[string]interface{}
 		var doc driver.Car
 		err := json.Unmarshal(hit.Source, &doc)
+
 		if err != nil {
 			log.Fatalf("Error deserializing hit to document: %s", err)
 		}
+
 		doc.UUID = hit.Id
+		response = append(response, doc)
 		fmt.Printf("Document ID: %s, Fields: %+v\n", hit.Id, doc)
 	}
+
+	return response
 }
 
 func (this *Elastic) AddDocument(doc driver.Car) bool {
@@ -158,8 +172,23 @@ func (this *Elastic) AddDocument(doc driver.Car) bool {
 	return true
 }
 
-func (this *Elastic) InsertOne(car driver.Car) {
-	this.AddDocument(car)
+func (this *Elastic) InsertOne(car driver.Car) *driver.Car {
+	uuid5 := utils.GetUUID(car.PlateNumber)
+	car.UUID = uuid5
+
+	indexResponse, err := this.elasticClient.Index().
+		Index(this.indexName).
+		BodyJson(car).
+		Id(uuid5).
+		Do(context.Background())
+
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+
+	log.Printf("Indexed document %s to index %s\n", indexResponse.Id, indexResponse.Index)
+	return &car
 }
 
 func (this *Elastic) Seed(count int) {
@@ -215,4 +244,50 @@ func (this *Elastic) DeleteDocument(docID string) {
 		log.Printf("Error deleting document: %s", err.Error())
 	}
 	fmt.Printf("Document ID %s deleted, result: %s\n", docID, deleteResponse.Result)
+}
+
+func (this *Elastic) GetByUUID(UUID string) *driver.Car {
+	log.Println(UUID)
+	response, err := this.elasticClient.Get().
+		Index(this.indexName).
+		Id(UUID).
+		Do(context.Background())
+
+	if err != nil {
+		log.Println("Error getting document by ID", err)
+		return nil
+	}
+
+	if !response.Found {
+		log.Printf("Document with ID %s not found in index %s\n", UUID, this.indexName)
+		return nil
+	}
+
+	var doc driver.Car
+	errJson := json.Unmarshal(response.Source, &doc)
+
+	if errJson != nil {
+		log.Fatalf("Error deserializing hit to document: %s", err)
+		return nil
+	}
+
+	return &doc
+}
+
+func (this *Elastic) GetIndexStructure() {
+	mappings, err := this.elasticClient.GetMapping().Index(this.indexName).Do(context.Background())
+	if err != nil {
+		log.Fatalf("Error getting mappings: %s", err)
+	}
+
+	mappingsJSON, _ := json.MarshalIndent(mappings, "", "  ")
+	fmt.Printf("Mappings for index %s: %s\n", this.indexName, string(mappingsJSON))
+
+	settings, err := this.elasticClient.IndexGetSettings(this.indexName).Do(context.Background())
+	if err != nil {
+		log.Fatalf("Error getting settings: %s", err)
+	}
+
+	settingsJSON, _ := json.MarshalIndent(settings, "", "  ")
+	fmt.Printf("Settings for index %s: %s\n", this.indexName, string(settingsJSON))
 }

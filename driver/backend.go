@@ -5,9 +5,11 @@ type Backend interface {
 	Dispose()
 	Seed(documentNumber int)
 	Search3(regex string) []Car
+	GetAllDocuments() []Car
 	CountDocuments() int64
 	InsertOne(car Car) *Car
 	GetByUUID(UUID string) *Car
+	CreateIndex()
 }
 
 type Car struct {

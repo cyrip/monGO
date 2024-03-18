@@ -10,6 +10,7 @@ import (
 	"github.com/cyrip/monGO/config"
 	"github.com/cyrip/monGO/controllers"
 	"github.com/cyrip/monGO/driver"
+	"github.com/cyrip/monGO/driver/elastic"
 	"github.com/cyrip/monGO/driver/mongo"
 	"github.com/cyrip/monGO/utils"
 	"github.com/joho/godotenv"
@@ -31,7 +32,7 @@ func main() {
 
 	log.Printf("monGO started! CPUs: %d, total/free memory %dMB/%dMB", runtime.NumCPU(), memory.TotalMemory()/1024, memory.FreeMemory()/1024)
 	mode := getopt.StringLong("mode", 'm', "", "[-m|--mode] [server|migrate]")
-	// backend := getopt.StringLong("mode", 'm', "", "[-m|--mode] [server|migrate]")
+	backend := getopt.StringLong("backend", 'b', "", "[-b|--backend] [mongo|elastic|sql]")
 
 	getopt.Parse()
 
@@ -42,9 +43,25 @@ func main() {
 
 	switch *mode {
 	case "server":
-		backend := mongo.MongoCars{}
-		controllers.Init(&backend)
-		application.StartServer()
+		switch *backend {
+		case "mongo":
+			backend := mongo.MongoCars{}
+			controllers.Init(&backend)
+			application.StartServer()
+		case "elastic":
+			backend := elastic.Elastic{}
+			backend.Init()
+			backend.CreateIndex()
+			//backend.DeleteIndex()
+			//os.Exit(1)
+			controllers.Init(&backend)
+			application.StartServer()
+		case "sql":
+			log.Fatalln("Not implemented yet")
+		default:
+			log.Fatalf("There is no such backend!")
+			os.Exit(1)
+		}
 	case "migrate":
 		log.Printf("Start migration")
 		//container := container.Container{}

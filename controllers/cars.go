@@ -16,6 +16,8 @@ var backend driver.Backend
 func Init(bck driver.Backend) {
 	backend = bck
 	backend.Init()
+	// we call all backend createIndex method would be better call it InitDatabase (empty starting in docker without database)
+	backend.CreateIndex()
 }
 
 func PostCar(c *gin.Context) {
@@ -45,7 +47,6 @@ func PostCar(c *gin.Context) {
 	}
 
 	c.Header("Location", "/jarmuvek/"+inserted.UUID)
-
 	c.JSON(http.StatusCreated, inserted)
 }
 
@@ -76,4 +77,9 @@ func Search(c *gin.Context) {
 func CountCars(c *gin.Context) {
 	count := backend.CountDocuments()
 	c.String(http.StatusOK, strconv.FormatInt(count, 10))
+}
+
+func GetAllDocuments(c *gin.Context) {
+	response := backend.GetAllDocuments()
+	c.JSON(http.StatusOK, response)
 }
