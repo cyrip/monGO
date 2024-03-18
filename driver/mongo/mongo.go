@@ -81,7 +81,7 @@ func (this *MongoCars) CountDocuments() int64 {
 	return sumCount
 }
 
-func (this *MongoCars) InsertOne(car driver.Car) {
+func (this *MongoCars) InsertOne(car driver.Car) *driver.Car {
 
 	shard := this.getMongoShard(car.PlateNumber)
 	car.UUID = utils.GetUUID(car.PlateNumber)
@@ -89,7 +89,10 @@ func (this *MongoCars) InsertOne(car driver.Car) {
 	if err != nil {
 		fmt.Println(response)
 		fmt.Println(err)
+		return nil
 	}
+
+	return &car
 }
 
 func (this *MongoCars) Seed(documentNumber int) {
@@ -211,6 +214,25 @@ func (this *MongoCars) findAsync(regex string) []driver.Car {
 func (this *MongoCars) Search3(regex string) []driver.Car {
 	return this.findSync(regex, 0)
 	// return this.findAsync("AA.*")
+}
+
+func (this *MongoCars) GetByUUID(UUID string) *driver.Car {
+	var result driver.Car
+	filter := bson.D{{"uuid", UUID}}
+
+	err := this.collections[0].FindOne(context.TODO(), filter).Decode(&result) // @TODO: make it shard safe
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Println("No document matches the provided criteria.")
+		} else {
+			log.Fatal(err)
+		}
+		return nil
+	} else {
+		log.Printf("Found a document: %+v\n", result)
+		return &result
+	}
 }
 
 func (this *MongoCars) findSync(regex string, id int) []driver.Car {

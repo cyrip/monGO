@@ -4,6 +4,8 @@ import (
 	"os"
 	"strconv"
 
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -30,6 +32,11 @@ func GetEnvInt(key string, def int) int {
 	}
 
 	return i
+}
+
+func IsDateValue(stringDate string) bool {
+	_, err := time.Parse("2006-01-01", stringDate)
+	return err == nil
 }
 
 func GetUUID(name string) string {
