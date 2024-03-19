@@ -2,16 +2,16 @@ version: '3'
 services:
   es00:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
-    mem_limit: 2048m
-    mem_reservation: 2048m
-    cpus: '2'
+    mem_limit: 3072m
+    mem_reservation: 3072m
+    cpus: '1'
     container_name: es00
     environment:
       - node.name=es00
       - discovery.type=single-node
       - xpack.security.enabled=false
       - xpack.security.transport.ssl.enabled=false
-      - "ES_JAVA_OPTS=-Xms1960m -Xmx1960m"
+      - "ES_JAVA_OPTS=-Xms3072m -Xmx3072m"
     volumes:
       - es00-darth-data:/usr/share/elasticsearch/data
     ports:
@@ -21,9 +21,9 @@ services:
   app:
     build: .
     image: kz/darth-veda:latest
-    mem_limit: 2048m
-    mem_reservation: 2048m
-    cpus: '2'
+    mem_limit: 1024m
+    mem_reservation: 1024m
+    cpus: '3'
     environment:
       - SERVER_PORT=8080
       - SERVER_MODE=server
