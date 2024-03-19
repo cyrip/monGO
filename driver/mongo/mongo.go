@@ -144,6 +144,7 @@ func (this *MongoCars) addIndex(id int) {
 }
 
 func (this *MongoCars) getMongoShard(plateNumber string) int {
+	return 0 // @TODO: must be done for sharded mongo cluster
 	firstChar := plateNumber[0]
 	return int(firstChar) % MONGO_SHARDS
 }

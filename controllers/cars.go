@@ -23,12 +23,25 @@ func Init(bck driver.Backend) {
 func PostCar(c *gin.Context) {
 	var postData driver.Car
 
-	formValues := c.PostFormMap("")
-	log.Println(formValues)
+	//rawData, err := io.ReadAll(c.Request.Body)
+	//if err != nil {
+	//c.AbortWithStatusJSON(500, gin.H{"error": "Failed to read request body"})
+	//return
+	//}
+
+	//fmt.Println(string(rawData))
+
+	//c.AbortWithStatusJSON(500, gin.H{"error": "Failed to read request body"})
 
 	if err := c.ShouldBindJSON(&postData); err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(postData.Data) == 0 {
+		log.Println("forgalmi_ervenyes must be date")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "forgalmi_ervenyes must be date"})
 		return
 	}
 
@@ -46,6 +59,7 @@ func PostCar(c *gin.Context) {
 		return
 	}
 
+	log.Printf("Owner: %s", inserted.Owner)
 	c.Header("Location", "/jarmuvek/"+inserted.UUID)
 	c.JSON(http.StatusCreated, inserted)
 }
@@ -67,6 +81,7 @@ func Search(c *gin.Context) {
 	query, exists := c.GetQuery("q")
 	if !exists || query == "" {
 		c.String(http.StatusBadRequest, "")
+		return
 	}
 
 	response := backend.Search3(query)
