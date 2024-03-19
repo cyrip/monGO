@@ -1,5 +1,10 @@
 # monGO by Cyrip
 
+# to start Darth-Veda
+./start.sh
+
+# some details
+
 ## start with mongodb backend
 
 docker-compose -f app-with-mongo-backend.yml up
